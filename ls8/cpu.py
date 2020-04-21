@@ -14,6 +14,25 @@ class CPU:
         # This builds 256 slots in the list for memory
         self.ram = [0] * 256
         self.pc = 0
+        self.instruction = {
+            0b00000001: self.hlt,
+            0b10000010: self.ldi,
+            0b10000111: self.prn,
+            0b10100010: self.mul
+        }
+
+    def hlt(self):
+        sys.exit(0)
+
+    def ldi(self, operand_a, operand_b):
+        # Set the value of register to an integer
+        self.reg[operand_a] = operand_b
+
+    def prn(self, operand_a):
+        # print numeric value stored in the given register
+        print(self.reg[operand_a])
+
+
 
     def load(self):
         """Load a program into memory."""
@@ -66,8 +85,19 @@ class CPU:
         print()
 
     def run(self):
-        """Run the CPU."""
-        pass
+        """
+        Run the CPU.
+        Need to read the memory address that's stored in register PC
+        Store that result in IR - Instruction Register. Local variable
+        """
+        running = True
+
+        while running:
+            ir = self.ram[self.pc]
+            operand_a = self.ram_read(self.pc + 1)
+            operand_b = self.ram_read(self.pc + 2)
+
+            oper = self.instruction[ir](operand_a, operand_b)
 
     def ram_read(self, mar):
         """
