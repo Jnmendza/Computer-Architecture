@@ -2,6 +2,16 @@
 
 import sys
 
+HLT = 0b00000001
+LDI = 0b10000010
+PRN = 0b10000111
+MUL = 0b10100010
+
+print(sys.argv)
+program_filename = sys.argv[1]
+
+
+# sys.exit()
 
 class CPU:
     """Main CPU class."""
@@ -14,11 +24,11 @@ class CPU:
         # This builds 256 slots in the list for memory
         self.ram = [0] * 256
         self.pc = 0
-        self.instruction = {
-            0b00000001: self.hlt,
-            0b10000010: self.ldi,
-            0b10000111: self.prn,
-            0b10100010: self.mul
+        self.instructions = {
+            HLT: self.hlt,
+            LDI: self.ldi,
+            PRN: self.prn,
+            MUL: self.mul
         }
 
     def hlt(self):
@@ -32,28 +42,38 @@ class CPU:
         # print numeric value stored in the given register
         print(self.reg[operand_a])
 
-
-
     def load(self):
         """Load a program into memory."""
 
+        # check for filename arg
+        if len(sys.argv) != 2:
+            print("ERROR: must have file name")
+            sys.exit(1)
+
         address = 0
 
-        # For now, we've just hardcoded a program:
+        try:
+            with open(sys.argv[1]) as f:
+                # read all the lines
+                for line in f:
+                    # parse out comments
+                    comment_split = line.strip().split("#")
 
-        program = [
-            # From print8.ls8
-            0b10000010,  # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111,  # PRN R0
-            0b00000000,
-            0b00000001,  # HLT
-        ]
+                    value = comment_split[0].strip()
 
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+                    # ignore blank lines
+                    if value == "":
+                        continue
+
+                    # cast the numbers from strings to ints
+                    num = int(value, 2)
+
+                    self.ram[address] = num
+                    address += 1
+
+        except FileNotFoundError:
+            print("File not found")
+            sys.exit(2)
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
@@ -97,7 +117,12 @@ class CPU:
             operand_a = self.ram_read(self.pc + 1)
             operand_b = self.ram_read(self.pc + 2)
 
-            oper = self.instruction[ir](operand_a, operand_b)
+            inst_len = ((ir & 0b11000000) >> 6) + 1
+            if ir in self.instructions:
+                self.instructions[ir](operand_a, operand_b)
+            else:
+                print("Not valid")
+            self.pc += inst_len
 
     def ram_read(self, mar):
         """
