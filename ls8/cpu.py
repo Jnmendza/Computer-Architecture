@@ -1,74 +1,38 @@
-"""CPU functionality."""
-
 import sys
 
-HLT = 0b00000001
-LDI = 0b10000010
-PRN = 0b10000111
-MUL = 0b10100010
-
-print(sys.argv)
-program_filename = sys.argv[1]
-
-
-# sys.exit()
 
 class CPU:
     """Main CPU class."""
 
     def __init__(self):
         """Construct a new CPU."""
-        # construct RAM REG and PC
-        # This builds 8 slots in the list [R0, R1, R2, etc]
-        self.reg = [0] * 8
-        # This builds 256 slots in the list for memory
-        self.ram = [0] * 256
+        # PC
         self.pc = 0
-        self.instructions = {
-            HLT: self.hlt,
-            LDI: self.ldi,
-            PRN: self.prn,
-            MUL: self.mul
-        }
-
-    def hlt(self):
-        sys.exit(0)
-
-    def ldi(self, operand_a, operand_b):
-        # Set the value of register to an integer
-        self.reg[operand_a] = operand_b
-
-    def prn(self, operand_a):
-        # print numeric value stored in the given register
-        print(self.reg[operand_a])
+        # REGISTER
+        self.reg = [0] * 8
+        # RAM
+        self.ram = [0] * 256
+        self.SP = 7
 
     def load(self):
         """Load a program into memory."""
-
-        # check for filename arg
-        if len(sys.argv) != 2:
-            print("ERROR: must have file name")
-            sys.exit(1)
-
-        address = 0
-
         try:
+            address = 0
+
             with open(sys.argv[1]) as f:
-                # read all the lines
                 for line in f:
-                    # parse out comments
-                    comment_split = line.strip().split("#")
-
-                    value = comment_split[0].strip()
-
-                    # ignore blank lines
-                    if value == "":
+                    # Ignore comments
+                    comment_split = line.split('#')
+                    # print("commentsplit", comment_split)
+                    # Strip out the white space
+                    num = comment_split[0].strip()
+                    print("num", num)
+                    # Ignore blank lines
+                    if num == "":
                         continue
 
-                    # cast the numbers from strings to ints
-                    num = int(value, 2)
-
-                    self.ram[address] = num
+                    val = int(num, 2)
+                    self.ram[address] = val
                     address += 1
 
         except FileNotFoundError:
@@ -101,38 +65,93 @@ class CPU:
 
         for i in range(8):
             print(" %02X" % self.reg[i], end='')
-
         print()
 
+    # Memory Address Register (MAR)
+    # Memory Data Register (MDR).
+    def ram_read(self, MAR):  # should accept the address to read and return the value stored there.
+        return self.ram[MAR]
+
+    def ram_write(self, MAR, MDR):  # should accept a value to write, and the address to write it to.
+        self.ram[MAR] = MDR
+
     def run(self):
-        """
-        Run the CPU.
-        Need to read the memory address that's stored in register PC
-        Store that result in IR - Instruction Register. Local variable
-        """
+        """Run the CPU."""
+
+        LDI = 0b10000010
+        PRN = 0b01000111
+        HLT = 0b00000001
+        MUL = 0b10100010
+        PUSH = 0b01000101
+        POP = 0b01000110
+        CALL = 0b01010000
+        RET = 0b00010001
+        ADD = 0b10100000
+
         running = True
 
         while running:
             ir = self.ram[self.pc]
-            operand_a = self.ram_read(self.pc + 1)
-            operand_b = self.ram_read(self.pc + 2)
+            # LDI - load "immediate", "set this register to this value".
+            if ir == LDI:
+                operand_a = self.ram_read(self.pc + 1)
+                operand_b = self.ram_read(self.pc + 2)
+                self.reg[operand_a] = operand_b
+                self.pc += 3
 
-            inst_len = ((ir & 0b11000000) >> 6) + 1
-            if ir in self.instructions:
-                self.instructions[ir](operand_a, operand_b)
+            # PRN - a pseudo-instruction that prints the numeric value stored in a register.
+            elif ir == PRN:
+                num = self.ram[self.pc + 1]
+                print(self.reg[num])
+                self.pc += 2
+
+            # MUL - # Expected output: 72
+            elif ir == MUL:
+                operand_a = self.ram_read(self.pc + 1)
+                operand_b = self.ram_read(self.pc + 2)
+                self.reg[operand_a] = self.reg[operand_a] * self.reg[operand_b]
+                self.pc += 3
+
+            # PUSH
+            elif ir == PUSH:
+                reg = self.ram[self.pc + 1]
+                val = self.reg[reg]
+                self.SP -= 1
+                self.ram[self.SP] = val
+                self.pc += 2
+
+            # POP
+            elif ir == POP:
+                reg = self.ram[self.pc + 1]
+                val = self.ram[self.SP]
+                self.reg[reg] = val
+                self.SP += 1
+                self.pc += 2
+
+            # CALL
+            elif ir == CALL:
+                val = self.pc + 2
+                reg = self.ram[self.pc + 1]
+                sub = self.reg[reg]
+                self.reg[self.SP] -= 1
+                self.ram[self.reg[self.SP]] = val
+                self.pc = sub
+
+            # RET
+            elif ir == RET:
+                pc = self.reg[self.SP]
+                self.pc = self.ram[pc]
+
+            # ADD
+            elif ir == ADD:
+                self.alu('ADD', self.ram_read(self.pc + 1), self.ram_read(self.pc + 2))
+                self.pc += 3
+
+            # HLT - halt the CPU and exit the emulator.
+            elif ir == HLT:
+                running = False
+                self.pc += 1
+
             else:
-                print("Not valid")
-            self.pc += inst_len
-
-    def ram_read(self, mar):
-        """
-        mar - Memory Address Register read or written
-        mdr - Memory Data Register that was read or written
-        """
-        # Where in the 256 individual slots of RAM are you looking?
-        # When you find it, what is the value? Return the Value
-        mdr = self.ram[mar]
-        return mdr
-
-    def ram_write(self, mar, mdr):
-        self.ram[mar] = mdr
+                print(f'command not found')
+                sys.exit(1)
