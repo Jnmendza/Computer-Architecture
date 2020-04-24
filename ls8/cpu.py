@@ -26,7 +26,7 @@ class CPU:
                     # print("commentsplit", comment_split)
                     # Strip out the white space
                     num = comment_split[0].strip()
-                    print("num", num)
+                    # print("num", num)
                     # Ignore blank lines
                     if num == "":
                         continue
@@ -69,10 +69,12 @@ class CPU:
 
     # Memory Address Register (MAR)
     # Memory Data Register (MDR).
-    def ram_read(self, MAR):  # should accept the address to read and return the value stored there.
+    # should accept the address to read and return the value stored there.
+    def ram_read(self, MAR):
         return self.ram[MAR]
 
-    def ram_write(self, MAR, MDR):  # should accept a value to write, and the address to write it to.
+    # should accept a value to write, and the address to write it to.
+    def ram_write(self, MAR, MDR):
         self.ram[MAR] = MDR
 
     def run(self):
@@ -87,6 +89,13 @@ class CPU:
         CALL = 0b01010000
         RET = 0b00010001
         ADD = 0b10100000
+
+        # Sprint
+        EF = 0
+        CMP = 0b10100111
+        JMP = 0b01010100
+        JEQ = 0b01010101
+        JNE = 0b01010110
 
         running = True
 
@@ -146,6 +155,30 @@ class CPU:
             elif ir == ADD:
                 self.alu('ADD', self.ram_read(self.pc + 1), self.ram_read(self.pc + 2))
                 self.pc += 3
+
+            elif ir == CMP:
+                # self.Flag = CMP
+                if self.reg[self.ram_read(self.pc + 1)] == self.reg[self.ram_read(self.pc + 2)]:
+                    EF = 1
+                self.pc += 3
+
+            # JMP - Jump Command
+            elif ir == JMP:
+                self.pc = self.reg[self.ram_read(self.pc + 1)]
+
+            # JEQ - Jump equal
+            elif ir == JEQ:
+                if EF == 1:
+                    self.pc = self.reg[self.ram_read(self.pc + 1)]
+                else:
+                    self.pc += 2
+
+            # JNE = Jump not equal
+            elif ir == JNE:
+                if EF == 0:
+                    self.pc = self.reg[self.ram_read(self.pc + 1)]
+                else:
+                    self.pc += 2
 
             # HLT - halt the CPU and exit the emulator.
             elif ir == HLT:
